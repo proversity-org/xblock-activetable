@@ -36,5 +36,5 @@ setup(
             'activetable = activetable:ActiveTableXBlock',
         ]
     },
-    package_data=package_data("activetable", ["static", "public"]),
+    package_data=package_data("activetable", ["static", "public", "templates"]),
 )
