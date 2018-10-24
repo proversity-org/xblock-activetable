@@ -5,7 +5,7 @@ from __future__ import absolute_import, division, unicode_literals
 import textwrap
 
 from xblock.core import XBlock
-from xblock.fields import Dict, Float, Integer, Scope, String
+from xblock.fields import Dict, Float, Integer, Scope, String, Boolean
 from xblock.fragment import Fragment
 from xblock.validation import ValidationMessage
 from xblockutils.resources import ResourceLoader
@@ -88,6 +88,13 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         scope=Scope.settings,
     )
 
+    no_right_answer = Boolean(
+        display_name="No right answer",
+        help="if it is selected means the students answers are recorded but not checked for correctness",
+        scope=Scope.settings,
+        default=False
+    )
+
     editable_fields = [
         'display_name',
         'content',
@@ -97,6 +104,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         'default_tolerance',
         'maximum_score',
         'max_attempts',
+        'no_right_answer',
     ]
 
     # Dictionary mapping cell ids to the student answers.
@@ -189,6 +197,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             thead=self.thead,
             tbody=self.tbody,
             max_attempts=self.max_attempts,
+            no_right_answer=self.no_right_answer,
         )
         html = loader.render_template('templates/html/activetable.html', context)
 
@@ -214,10 +223,16 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             return self.get_status()
         self.parse_fields()
         self.postprocess_table()
-        answers_correct = {
-            cell_id: self.response_cells[cell_id].check_response(value)
-            for cell_id, value in data.iteritems()
-        }
+        if self.no_right_answer:
+            answers_correct = {
+                cell_id: True if value != "" else False
+                for cell_id, value in data.iteritems()
+            }
+        else:
+            answers_correct = {
+                cell_id: self.response_cells[cell_id].check_response(value)
+                for cell_id, value in data.iteritems()
+            }
         # Since the previous statement executed without error, the data is well-formed enough to be
         # stored.  We now know it's a dictionary and all the keys are valid cell ids.
         self.answers = data
@@ -238,8 +253,14 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
     @XBlock.json_handler
     def save_answers(self, data, unused_suffix=''):
         """Save the answers given by the student without checking them."""
-        self.check_and_save_answers(data)
-        self.answers_correct = None
+        self.answers_correct = self.check_and_save_answers(data)
+
+        if self.no_right_answer:
+            self.score = self.num_correct_answers * self.maximum_score / len(self.answers_correct)
+            self.runtime.publish(self, 'grade', dict(value=self.score, max_value=self.maximum_score))
+        else:
+            self.answers_correct = None
+
         return self.get_status()
 
     def validate_field_data(self, validation, data):
