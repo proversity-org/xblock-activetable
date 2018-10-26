@@ -211,6 +211,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             tbody=self.tbody,
             max_attempts=self.max_attempts,
             no_right_answer=self.no_right_answer,
+            extendable=self.extendable,
         )
         html = loader.render_template('templates/html/activetable.html', context)
 
@@ -349,18 +350,14 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         user_rows = list()
 
         for row in self.additional_rows:
-
             new_cells = list()
-
             for idx, item in enumerate(cells):
                 if not idx:
                     cell = StaticCell(row.get("new_column_value"))
                 else:
                     cell = TextCell("")
                 cell.index = idx
-
                 new_cells.append(cell)
-
             user_rows.append(dict(index=row.get("index"), cells=new_cells))
 
         return user_rows
