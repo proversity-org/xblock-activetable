@@ -234,7 +234,6 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             # we can only get here by manually crafted requests.  We simply return the current
             # status without rechecking or storing the answers in that case.
             return self.get_status()
-
         self.parse_fields()
         self.postprocess_table()
         if self.extendable:

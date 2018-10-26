@@ -3,6 +3,7 @@ function ActiveTableXBlock(runtime, element, init_args) {
 
     var checkHandlerUrl = runtime.handlerUrl(element, 'check_answers');
     var saveHandlerUrl = runtime.handlerUrl(element, 'save_answers');
+    var addRowHandlerUrl = runtime.handlerUrl(element, 'add_row');
 
     function markResponseCells(data) {
         if (data.answers_correct) {
@@ -91,8 +92,45 @@ function ActiveTableXBlock(runtime, element, init_args) {
         $(this).attr('aria-expanded', visible);
     }
 
+    function addNewRow() {
+        var lastRow = $("#activetable tbody").find("tr:last");
+        var index = $("#activetable tbody").children("tr").length;
+        var newRow = lastRow.clone();
+        newRow.toggleClass("odd even");
+        newRow.children('td').each(function () {
+            var oldId = this.id;
+            $(this).replaceWith(createCell(oldId, index));
+        });
+        lastRow.after(newRow);
+    }
+
+    function createCell(cellId, index){
+        var newId = cellId.replace("_"+index+"_", "_"+(index+1)+"_")
+        var cell = $("<td>").attr("id", newId);
+
+        if (!cellId.endsWith("_0")){
+            cell.addClass("active unchecked");
+            var cellInput = $("<input>").attr("placeholder", "text response").attr("id", "input_"+newId).attr("type", "text");
+            var cellLabel = $("<label>").addClass("sr").attr("for", "input_"+newId);
+            cell.append(cellLabel).append(cellInput);
+        } else {
+            var previousColumnValue = parseInt($("#"+cellId).text());
+            if (isNaN(previousColumnValue)){
+                cell.text(index+1);
+            } else {
+                cell.text(previousColumnValue+1);
+            }
+        }
+
+        return cell;
+    }
+
     $('#activetable-help-button', element).click(toggleHelp);
     $('.action .check', element).click(function (e) { callHandler(checkHandlerUrl); });
     $('.action .save', element).click(function (e) { callHandler(saveHandlerUrl); });
+    $('.action .extendable', element).click(function (e) {
+        callHandler(addRowHandlerUrl);
+        addNewRow(addRowHandlerUrl);
+    });
     updateStatus(init_args);
 }
