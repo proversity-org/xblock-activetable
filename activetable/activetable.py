@@ -2,8 +2,14 @@
 """An XBlock with a tabular problem type that requires students to fill in some cells."""
 from __future__ import absolute_import, division, unicode_literals
 
+import io
 import textwrap
 
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
+from webob.response import Response
 from xblock.core import XBlock
 from xblock.fields import Dict, Float, Integer, Scope, String, Boolean, List
 from xblock.fragment import Fragment
@@ -12,7 +18,7 @@ from xblockutils.resources import ResourceLoader
 from xblockutils.studio_editable import StudioEditableXBlockMixin
 
 from .cells import NumericCell, StaticCell, TextCell
-from .parsers import ParseError, parse_table, parse_number_list
+from .parsers import ParseError, parse_table, parse_number_list, parse_to_pdf
 
 loader = ResourceLoader(__name__)  # pylint: disable=invalid-name
 
@@ -285,6 +291,55 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         self._add_row()
         return self.get_status()
 
+    @XBlock.handler
+    def download_pdf_file(self, data, unused_suffix=''):
+        """
+        Retrieve pdf file containing all table data.
+        """
+        MARGIN_VALUE = 30
+        all_element_cells = []
+
+        # We need to parse the table before to parse it to pdf data.
+        self.parse_fields()
+        data = parse_to_pdf(self.tbody, self.thead, self.answers)
+        # Create a file-like buffer to receive PDF data.
+        buffer_data = io.BytesIO()
+
+        try:
+            # Create the PDF object, using the buffer as its "file."
+            document_obj = SimpleDocTemplate(
+                buffer_data,
+                pagesize=A4,
+                rightMargin=MARGIN_VALUE,
+                leftMargin=MARGIN_VALUE,
+                topMargin=MARGIN_VALUE,
+                bottomMargin=MARGIN_VALUE
+            )
+            document_obj.pagesize = landscape(A4)
+            table_style = TableStyle([
+                ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.black),
+                ('BOX', (0, 0), (-1, -1), 0.25, colors.black),
+            ])
+
+            #Configure style and word wrap
+            sample_style_sheet = getSampleStyleSheet()
+            sample_style_sheet = sample_style_sheet["BodyText"]
+            # Set the word wrap at the end of the cell border.
+            sample_style_sheet.wordWrap = 'CJK'
+            final_data = [[Paragraph(cell, sample_style_sheet) for cell in row] for row in data]
+            table_obj = Table(final_data)
+            table_obj.setStyle(table_style)
+
+            #Send the data and build the file
+            all_element_cells.append(table_obj)
+            document_obj.build(all_element_cells)
+        except Exception as exp:
+            raise GeneratePdfError('PDF file could not be generated. {}'.format(str(exp)))
+
+        response_obj = Response(content_type='text/plain')
+        response_obj.body = buffer_data.getvalue()
+        return response_obj
+
     def validate_field_data(self, validation, data):
         """Validate the data entered by the user.
 
@@ -396,3 +451,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
                 </vertical_demo>
              """),
         ]
+
+
+class GeneratePdfError(Exception):
+    """The pdf file could not be generated."""
