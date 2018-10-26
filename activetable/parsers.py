@@ -115,10 +115,11 @@ def parse_to_pdf(body, headers, answers):
     for row in body:
         row_answers = []
         for cell in row['cells']:
-            cell_answer = get_answer_for_cell(row['index'], cell.index, answers)
-            # If cell_answer is None, we take StaticCell value.
-            if not cell_answer:
+            # If cell is static one, we take StaticCell value.
+            if cell.is_static:
                 cell_answer = str(cell.value)
+            else:
+                cell_answer = get_answer_for_cell(row['index'], cell.index, answers)
             row_answers.append(cell_answer)
         list_answers.append(row_answers)
     list_table.extend(list_answers)
