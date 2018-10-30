@@ -5,13 +5,13 @@ from __future__ import absolute_import, division, unicode_literals
 import textwrap
 
 from xblock.core import XBlock
-from xblock.fields import Dict, Float, Integer, Scope, String, Boolean
+from xblock.fields import Dict, Float, Integer, Scope, String, Boolean, List
 from xblock.fragment import Fragment
 from xblock.validation import ValidationMessage
 from xblockutils.resources import ResourceLoader
 from xblockutils.studio_editable import StudioEditableXBlockMixin
 
-from .cells import NumericCell
+from .cells import NumericCell, StaticCell, TextCell
 from .parsers import ParseError, parse_table, parse_number_list
 
 loader = ResourceLoader(__name__)  # pylint: disable=invalid-name
@@ -95,6 +95,13 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         default=False
     )
 
+    extendable = Boolean(
+        display_name="Extendable",
+        help="If it's selected means the student can add additional rows at the end of the table.",
+        scope=Scope.settings,
+        default=False
+    )
+
     editable_fields = [
         'display_name',
         'content',
@@ -105,6 +112,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         'maximum_score',
         'max_attempts',
         'no_right_answer',
+        'extendable',
     ]
 
     # Dictionary mapping cell ids to the student answers.
@@ -116,6 +124,8 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
     score = Float(scope=Scope.user_state)
     # The number of attempts used.
     attempts = Integer(scope=Scope.user_state, default=0)
+    # New rows added by the user
+    additional_rows = List(scope=Scope.user_state, default=list())
 
     has_score = True
 
@@ -137,6 +147,8 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         """Parse the user-provided fields into more processing-friendly structured data."""
         if self.content:
             self.thead, self.tbody = parse_table(self.content)
+            if self.extendable:
+                self.tbody.extend(self.process_additional_rows())
         else:
             self.thead = self.tbody = None
             return
@@ -186,6 +198,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
 
     def student_view(self, context=None):
         """Render the table."""
+        self.remove_unsaved_rows()
         self.parse_fields()
         self.postprocess_table()
 
@@ -198,6 +211,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             tbody=self.tbody,
             max_attempts=self.max_attempts,
             no_right_answer=self.no_right_answer,
+            extendable=self.extendable,
         )
         html = loader.render_template('templates/html/activetable.html', context)
 
@@ -223,6 +237,8 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             return self.get_status()
         self.parse_fields()
         self.postprocess_table()
+        if self.extendable:
+            self.save_filled_additional_rows(data)
         if self.no_right_answer:
             answers_correct = {
                 cell_id: True if value != "" else False
@@ -263,6 +279,12 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
 
         return self.get_status()
 
+    @XBlock.json_handler
+    def add_row(self, data, unused_suffix=''):
+        """Add an additional row to the bottom"""
+        self._add_row()
+        return self.get_status()
+
     def validate_field_data(self, validation, data):
         """Validate the data entered by the user.
 
@@ -299,6 +321,63 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
                         'The number of list entries in the Row heights field must match the number '
                         'of rows in the table.'
                     )
+
+    def _add_row(self):
+
+        self.parse_fields()
+        last_item = self.tbody[-1]
+        index = last_item.get("index")
+        cells = last_item.get("cells", [])
+
+        if not len(cells):
+            return
+        try:
+            previous_column_value = cells[0].value
+        except AttributeError:
+            previous_column_value = index
+
+        if isinstance(previous_column_value, (int, long)):
+            new_column_value = previous_column_value + 1
+        else:
+            new_column_value = len(self.body) + 1
+
+        self.additional_rows.append({"index": index + 1, "new_column_value": new_column_value, "save": False})
+
+    def process_additional_rows(self):
+
+        last_item = self.tbody[-1]
+        cells = last_item.get("cells", [])
+        user_rows = list()
+
+        for row in self.additional_rows:
+            new_cells = list()
+            for idx, item in enumerate(cells):
+                if not idx:
+                    cell = StaticCell(row.get("new_column_value"))
+                else:
+                    cell = TextCell("")
+                cell.index = idx
+                new_cells.append(cell)
+            user_rows.append(dict(index=row.get("index"), cells=new_cells))
+
+        return user_rows
+
+    def remove_unsaved_rows(self):
+        auxiliar_list = list(self.additional_rows)
+
+        for row in auxiliar_list:
+            if not row.get("save"):
+                self.additional_rows.remove(row)
+
+    def save_filled_additional_rows(self, data):
+        for cell_id, value in data.iteritems():
+            index_column = self.response_cells[cell_id].index
+            index_row = cell_id[len("cell_"): -len("_{}".format(index_column))]
+            if value != "":
+                for row in self.additional_rows:
+                    if row.get("index") == int(index_row):
+                        row["save"] = True
+                        break
 
     @staticmethod
     def workbench_scenarios():
