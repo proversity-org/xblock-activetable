@@ -4,6 +4,7 @@ function ActiveTableXBlock(runtime, element, init_args) {
     var checkHandlerUrl = runtime.handlerUrl(element, 'check_answers');
     var saveHandlerUrl = runtime.handlerUrl(element, 'save_answers');
     var addRowHandlerUrl = runtime.handlerUrl(element, 'add_row');
+    var downloadHandlerUrl = runtime.handlerUrl(element, 'download_pdf_file');
 
     function markResponseCells(data) {
         if (data.answers_correct) {
@@ -84,6 +85,25 @@ function ActiveTableXBlock(runtime, element, init_args) {
         });
     }
 
+    function downloadPDFFile(data) {
+        var file = new Blob([data], { type: 'application/pdf' });
+        var fileURL = URL.createObjectURL(file);
+        var link = document.createElement('a');
+        link.href = fileURL
+        link.download = 'activetable_report.pdf';
+        document.body.appendChild(link);
+        link.click();
+    }
+
+    function downloadPDFHandler() {
+        $.ajax({
+            type: "GET",
+            url: downloadHandlerUrl,
+            dataType: "text",
+            success: downloadPDFFile,
+        });
+    }
+
     function toggleHelp(e) {
         var $help_text = $('#activetable-help-text', element), visible;
         $help_text.toggle();
@@ -132,5 +152,6 @@ function ActiveTableXBlock(runtime, element, init_args) {
         callHandler(addRowHandlerUrl);
         addNewRow(addRowHandlerUrl);
     });
+    $('.action .download', element).click(function (e) { downloadPDFHandler(); });
     updateStatus(init_args);
 }

@@ -100,3 +100,35 @@ def parse_number_list(source):
     if not all(isinstance(x, numbers.Real) for x in lst):
         raise ParseError('all entries must be numbers')
     return lst
+
+
+def parse_to_pdf(body, headers, answers):
+    """
+    Parse the body and headers data to a list of lists.
+
+    Returns:
+        A list of lists containing all row data inside of every list value.
+    """
+    list_table = []
+    list_answers = []
+    list_table.append(headers)
+    for row in body:
+        row_answers = []
+        for cell in row['cells']:
+            # If cell is static one, we take StaticCell value.
+            if cell.is_static:
+                cell_answer = str(cell.value)
+            else:
+                cell_answer = get_answer_for_cell(row['index'], cell.index, answers)
+            row_answers.append(cell_answer)
+        list_answers.append(row_answers)
+    list_table.extend(list_answers)
+    return list_table
+
+
+def get_answer_for_cell(row_index, column_index, answers):
+    """
+    Get the answer for every cell depending its row and column values.
+    """
+    answer = answers.get('cell_{}_{}'.format(row_index, column_index), '')
+    return str(answer)
