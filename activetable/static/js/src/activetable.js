@@ -14,6 +14,7 @@ function ActiveTableXBlock(runtime, element, init_args) {
                 if (correct) {
                     $cell.addClass('right-answer');
                     $cell.prop('title', 'correct');
+                    $cell.find("input").prop("checked", true);
                 } else {
                     $cell.addClass('wrong-answer');
                     $cell.prop('title', 'incorrect');
@@ -75,7 +76,12 @@ function ActiveTableXBlock(runtime, element, init_args) {
     function callHandler(url) {
         var answers = {};
         $('td.active', element).each(function() {
-            answers[this.id] = $('input', this).val();
+            var inputCell = $('input', this);
+            if (!$('input', this).attr("type").localeCompare("radio")){
+                answers[this.id] = inputCell.is(":checked");
+            } else {
+                answers[this.id] = inputCell.val();
+            }
         });
         $.ajax({
             type: "POST",
@@ -118,21 +124,29 @@ function ActiveTableXBlock(runtime, element, init_args) {
         var newRow = lastRow.clone();
         newRow.toggleClass("odd even");
         newRow.children('td').each(function () {
-            var oldId = this.id;
-            $(this).replaceWith(createCell(oldId, index));
+            $(this).replaceWith(createCell(this, index));
         });
         lastRow.after(newRow);
     }
 
-    function createCell(cellId, index){
+    function createCell(oldCell, index){
+        var cellId = oldCell.id
+        var type = $(oldCell).find("input").attr("type");
+        var height = $(oldCell).find("input").outerHeight();
         var newId = cellId.replace("_"+index+"_", "_"+(index+1)+"_")
         var cell = $("<td>").attr("id", newId);
 
         if (!cellId.endsWith("_0")){
             cell.addClass("active unchecked");
-            var cellInput = $("<input>").attr("placeholder", "text response").attr("id", "input_"+newId).attr("type", "text");
-            var cellLabel = $("<label>").addClass("sr").attr("for", "input_"+newId);
-            cell.append(cellLabel).append(cellInput);
+            var cellInput = $("<input>").attr("id", "input_"+newId).attr("type", type).css("height", height+"px");
+            if (!type.localeCompare("radio")) {
+                cellInput.attr("name", "row_"+(index+1));
+                var cellLabel = $("<label>").addClass("radio-label").attr("for", "input_"+newId).css("height", height+"px");
+            } else {
+                cellInput.attr("placeholder", "text response");
+                var cellLabel = $("<label>").addClass("sr").attr("for", "input_"+newId);
+            }
+            cell.append(cellInput).append(cellLabel);
         } else {
             var previousColumnValue = parseInt($("#"+cellId).text());
             if (isNaN(previousColumnValue)){
