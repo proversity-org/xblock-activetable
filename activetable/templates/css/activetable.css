@@ -121,3 +121,16 @@
     font-style: italic;
     margin-left: 10px;
 }
+.activetable_block input[type="radio"] {
+    display: none;
+}
+.activetable_block input[type="radio"]:checked + label{
+    opacity: 1;
+}
+.radio-label{
+    opacity: 0;
+    display: inline-block;
+    box-sizing: border-box;
+    background: url("{{ correct_icon }}") center no-repeat;
+    width: 100%;
+}

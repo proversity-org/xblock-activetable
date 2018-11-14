@@ -21,6 +21,7 @@ from .cells import NumericCell, StaticCell, TextCell
 from .parsers import ParseError, parse_table, parse_number_list, parse_to_pdf
 
 loader = ResourceLoader(__name__)  # pylint: disable=invalid-name
+SCORE_OPTIONS = ["scorable", "no_right_answer", "unique_option"]
 
 
 class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
@@ -94,11 +95,12 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         scope=Scope.settings,
     )
 
-    no_right_answer = Boolean(
-        display_name="No right answer",
-        help="if it is selected means the students answers are recorded but not checked for correctness",
+    score_type = String(
+        display_name="Score type",
+        help="Select if the answers will be checked  for correctness or if there will be a unique option",
         scope=Scope.settings,
-        default=False
+        default=SCORE_OPTIONS[0],
+        values_provider=lambda _: SCORE_OPTIONS,
     )
 
     extendable = Boolean(
@@ -117,7 +119,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         'default_tolerance',
         'maximum_score',
         'max_attempts',
-        'no_right_answer',
+        'score_type',
         'extendable',
     ]
 
@@ -216,7 +218,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             thead=self.thead,
             tbody=self.tbody,
             max_attempts=self.max_attempts,
-            no_right_answer=self.no_right_answer,
+            score_type=self.score_type,
             extendable=self.extendable,
         )
         html = loader.render_template('templates/html/activetable.html', context)
@@ -245,16 +247,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         self.postprocess_table()
         if self.extendable:
             self.save_filled_additional_rows(data)
-        if self.no_right_answer:
-            answers_correct = {
-                cell_id: True if value != "" else False
-                for cell_id, value in data.iteritems()
-            }
-        else:
-            answers_correct = {
-                cell_id: self.response_cells[cell_id].check_response(value)
-                for cell_id, value in data.iteritems()
-            }
+        answers_correct = self.check_responses(data)
         # Since the previous statement executed without error, the data is well-formed enough to be
         # stored.  We now know it's a dictionary and all the keys are valid cell ids.
         self.answers = data
@@ -277,8 +270,11 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         """Save the answers given by the student without checking them."""
         self.answers_correct = self.check_and_save_answers(data)
 
-        if self.no_right_answer:
+        if self.score_type == SCORE_OPTIONS[1]:
             self.score = self.num_correct_answers * self.maximum_score / len(self.answers_correct)
+            self.runtime.publish(self, 'grade', dict(value=self.score, max_value=self.maximum_score))
+        elif self.score_type == SCORE_OPTIONS[2]:
+            self.score = self.num_correct_answers * self.maximum_score / self.tbody[-1].get("index")
             self.runtime.publish(self, 'grade', dict(value=self.score, max_value=self.maximum_score))
         else:
             self.answers_correct = None
@@ -433,6 +429,23 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
                     if row.get("index") == int(index_row):
                         row["save"] = True
                         break
+
+    def check_responses(self, data):
+
+        if self.score_type == SCORE_OPTIONS[1]:
+            return {
+                cell_id: True if value != "" else False
+                for cell_id, value in data.iteritems()
+            }
+        elif self.score_type == SCORE_OPTIONS[2]:
+            return {
+                cell_id: value for cell_id, value in data.iteritems()
+            }
+        else:
+            return {
+                cell_id: self.response_cells[cell_id].check_response(value)
+                for cell_id, value in data.iteritems()
+            }
 
     @staticmethod
     def workbench_scenarios():
