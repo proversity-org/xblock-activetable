@@ -11,11 +11,15 @@
     <colgroup>
       {% for width in column_widths %}<col style="width: {{ width }}px;">{% endfor %}
     </colgroup>
-    <thead>
-      <tr style="height: {{ head_height }}px;">
-        {% for cell in thead %}<th scope="col">{{ cell }}</th>{% endfor %}
-      </tr>
-    </thead>
+    {% if headers_style %}
+      {{ headers_style|safe }}
+    {% else %}
+      <thead>
+        <tr style="height: {{ head_height }}px;">
+          {% for cell in thead %}<th scope="col">{{ cell }}</th>{% endfor %}
+        </tr>
+      </thead>
+    {% endif %}
     <tbody>
       {% for row in tbody %}
       <tr class="{{ row.class }}" style="height: {{ row.height }}px;">
