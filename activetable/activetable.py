@@ -3,6 +3,7 @@
 from __future__ import absolute_import, division, unicode_literals
 
 import io
+import re
 import textwrap
 
 from reportlab.lib import colors
@@ -110,9 +111,37 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         default=False
     )
 
+    custom_headers = Boolean(
+        display_name="Custom Headers",
+        help="Make true if you want to modify the headers style",
+        scope=Scope.settings,
+        default=False
+    )
+
+    headers_style = String(
+        display_name='Headers Style',
+        help='Include the new headers between the label <th></th> and inside the <thead> label.',
+        scope=Scope.content,
+        multiline_editor='html',
+        resettable_editor=False,
+        default=textwrap.dedent("""
+            <table>
+                <thead>
+                <tr>
+                <th>Header 1</th>
+                <th>Header 2</th>
+                <th>Header 3</th>
+                </tr>
+                </thead>
+            </table>
+        """)
+    )
+
     editable_fields = [
         'display_name',
         'content',
+        'custom_headers',
+        'headers_style',
         'help_text',
         'column_widths',
         'row_heights',
@@ -209,6 +238,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         self.remove_unsaved_rows()
         self.parse_fields()
         self.postprocess_table()
+        headers_style = re.sub('<[^<]*table>', '', self.headers_style) if self.custom_headers else None
 
         context = dict(
             help_text=self.help_text,
@@ -220,6 +250,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             max_attempts=self.max_attempts,
             score_type=self.score_type,
             extendable=self.extendable,
+            headers_style=headers_style,
         )
         html = loader.render_template('templates/html/activetable.html', context)
 
@@ -372,6 +403,13 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
                         'The number of list entries in the Row heights field must match the number '
                         'of rows in the table.'
                     )
+
+        if data.custom_headers:
+            if not data.headers_style.count("table") == 2:
+                add_error('Headers must be defined inside a unique table')
+
+            elif not data.headers_style.count("thead") == 2:
+                add_error('Headers must be defined inside a unique <thead></thead> label')
 
     def _add_row(self):
 
