@@ -87,7 +87,13 @@ function ActiveTableXBlock(runtime, element, init_args) {
             type: "POST",
             url: url,
             data: JSON.stringify(answers),
-            success: updateStatus,
+            success: function(data) {
+                var dataScoreType = $('.activetable_block', element).attr("data-score-type");
+                if (!dataScoreType.localeCompare("no_right_answer")){
+                    $(".no-right-answer-message p").fadeIn().delay(2000).fadeOut();
+                }
+                updateStatus(data);
+            }
         });
     }
 

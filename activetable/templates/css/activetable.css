@@ -110,6 +110,12 @@
 .activetable_block .status-message {
     margin: 0.5em 0 1.5em;
 }
+.activetable_block .no-right-answer-message {
+    margin: 0.5em 0 1.5em;
+}
+.activetable_block .no-right-answer-message p {
+    display: none;
+}
 .activetable_block .action button {
     height: 40px;
     margin-right: 10px;
