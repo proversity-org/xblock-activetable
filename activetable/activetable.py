@@ -19,7 +19,7 @@ from xblockutils.resources import ResourceLoader
 from xblockutils.studio_editable import StudioEditableXBlockMixin
 
 from .cells import NumericCell, StaticCell, TextCell
-from .parsers import ParseError, parse_table, parse_number_list, parse_to_pdf
+from .parsers import ParseError, parse_table, parse_number_list, parse_to_pdf, parse_headers_to_list
 
 loader = ResourceLoader(__name__)  # pylint: disable=invalid-name
 SCORE_OPTIONS = ["scorable", "no_right_answer", "unique_option"]
@@ -323,6 +323,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         """
         Retrieve pdf file containing all table data.
         """
+        title = data.params.get("unitTitle")
         MARGIN_VALUE = 30
         all_element_cells = []
 
@@ -340,24 +341,27 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
                 rightMargin=MARGIN_VALUE,
                 leftMargin=MARGIN_VALUE,
                 topMargin=MARGIN_VALUE,
-                bottomMargin=MARGIN_VALUE
+                bottomMargin=MARGIN_VALUE,
             )
             document_obj.pagesize = landscape(A4)
             table_style = TableStyle([
                 ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.black),
                 ('BOX', (0, 0), (-1, -1), 0.25, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ])
 
-            #Configure style and word wrap
-            sample_style_sheet = getSampleStyleSheet()
-            sample_style_sheet = sample_style_sheet["BodyText"]
-            # Set the word wrap at the end of the cell border.
-            sample_style_sheet.wordWrap = 'CJK'
-            final_data = [[Paragraph(cell, sample_style_sheet) for cell in row] for row in data]
+            all_element_cells.append(self.generate_pdf_title(title))
+
+            final_data = list(self.generate_pdf_data(data))
+
+            if self.custom_headers:
+                all_element_cells.append(self.generate_table_pdf_headers())
+                final_data.pop(0)
+
             table_obj = Table(final_data)
             table_obj.setStyle(table_style)
 
-            #Send the data and build the file
+            # Send the data and build the file
             all_element_cells.append(table_obj)
             document_obj.build(all_element_cells)
         except Exception as exp:
@@ -484,6 +488,86 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
                 cell_id: self.response_cells[cell_id].check_response(value)
                 for cell_id, value in data.iteritems()
             }
+
+    def generate_pdf_data(self, data):
+        """
+        This returns a generator, every element is a list.
+        """
+        sample_style_sheet = self.generate_style_sheet("BodyText")
+
+        if self.score_type == SCORE_OPTIONS[2]:
+            for row in data:
+                cell_data = []
+                for cell in row:
+                    if isinstance(cell, bool) and cell:
+                        cell_data.append(Paragraph("X", sample_style_sheet))
+                    elif isinstance(cell, bool):
+                        cell_data.append(Paragraph("", sample_style_sheet))
+                    else:
+                        cell_data.append(Paragraph(cell, sample_style_sheet))
+                yield(cell_data)
+        else:
+            for row in data:
+                yield([Paragraph(cell, sample_style_sheet) for cell in row])
+
+    def generate_pdf_title(self, title):
+        """
+        Returns a title from the unit name and component name
+        """
+        return Paragraph("{}-{}".format(title, self.display_name), self.generate_style_sheet("Heading2"))
+
+    def generate_table_pdf_headers(self):
+        """
+        This returns a Table from the custom html headers.
+        """
+        data = parse_headers_to_list(self.headers_style)
+
+        def generate_span(cell, row, col, max_row, max_col):
+            source = (col, row)
+            colspan = cell.get("colspan")
+            rowspan = cell.get("rowspan")
+            if colspan > 0 and rowspan > 0:
+                col += colspan
+                row += rowspan
+            elif colspan > 0:
+                col += colspan
+            elif rowspan > 0:
+                row += rowspan
+
+            if col > max_col:
+                col = max_col
+            if row > max_row:
+                row = max_row
+
+            return ("SPAN", source, (col, row))
+
+        table_style = [
+            ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.black),
+            ('BOX', (0, 0), (-1, -1), 0.25, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]
+
+        table = []
+
+        for row, element in enumerate(data):
+            table_row = []
+            for col, cell in enumerate(element):
+                if cell.get("value") != "":
+                    table_style.append(generate_span(cell, row, col, len(data) - 1, len(element) - 1))
+                table_row.append(Paragraph(cell.get("value"), self.generate_style_sheet("BodyText")))
+            table.append(table_row)
+
+        return Table(table, style=table_style)
+
+    def generate_style_sheet(self, stylesheet):
+        """
+        This returns a style variable to set cell
+        """
+        sample_style_sheet = getSampleStyleSheet()
+        sample_style_sheet = sample_style_sheet[stylesheet]
+        sample_style_sheet.wordWrap = 'CJK'
+        sample_style_sheet.alignment = 1
+        return sample_style_sheet
 
     @staticmethod
     def workbench_scenarios():
