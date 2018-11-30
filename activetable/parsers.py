@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, unicode_literals
 import ast
 import numbers
 
+from bs4 import BeautifulSoup
 from .cells import NumericCell, StaticCell, TextCell
 
 
@@ -131,4 +132,70 @@ def get_answer_for_cell(row_index, column_index, answers):
     Get the answer for every cell depending its row and column values.
     """
     answer = answers.get('cell_{}_{}'.format(row_index, column_index), '')
+    if isinstance(answer, bool):
+        return answer
     return str(answer)
+
+
+def parse_headers_to_list(headers):
+    """
+    Returns a list of <th></th> elements from a custom header
+    """
+    def update_rowspan(span, rowspan, index):
+        """
+        Update span list and returns index
+        """
+        try:
+            span[index] = rowspan
+        except IndexError:
+            span.append(rowspan)
+        finally:
+            return index + 1
+
+    def fill_with_spaces(row, span, index):
+        """
+        This fills a list (row) with spaces if the value in span[index] is mayor to zero, finally returns index
+        """
+        try:
+            while span[index] > 0:
+                span[index] -= 1
+                index += 1
+                row.append({"value": "", "rowspan": 0, "colspan": 0})
+        except IndexError:
+            pass
+        finally:
+            return index
+
+    def update_row_list(row, tag, span, index):
+        """
+        This update the row list with the text on the tag
+        """
+        if span:
+            index = fill_with_spaces(row, span, index)
+
+        rowspan = int(tag.get("rowspan", 1)) - 1
+        colspan = int(tag.get("colspan", 1)) - 1
+        index = update_rowspan(span, rowspan, index)
+        row.append({"value": tag.text, "rowspan": rowspan, "colspan": colspan})
+
+        for i in range(colspan):
+            row.append({"value": "", "rowspan": 0, "colspan": 0})
+            index = update_rowspan(span, rowspan, index)
+
+        return index
+
+    headers = BeautifulSoup(headers)
+    thead = headers.find("thead")
+
+    data = []
+    span = []
+
+    for tr in thead.find_all("tr"):
+        row = []
+        index = 0
+        for th in tr.find_all("th"):
+            index = update_row_list(row, th, span, index)
+        if row:
+            data.append(row)
+
+    return data

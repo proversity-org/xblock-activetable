@@ -108,8 +108,10 @@ function ActiveTableXBlock(runtime, element, init_args) {
     }
 
     function downloadPDFHandler() {
+        var data = {"unitTitle": $(".unit-title").text()};
         $.ajax({
             type: "GET",
+            data: data,
             url: downloadHandlerUrl,
             dataType: "text",
             success: downloadPDFFile,
