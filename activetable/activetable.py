@@ -325,6 +325,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         """
         title = data.params.get("unitTitle")
         MARGIN_VALUE = 30
+        TABLE_WIDTH = A4[1] - (2 * MARGIN_VALUE)
         all_element_cells = []
 
         # We need to parse the table before to parse it to pdf data.
@@ -355,10 +356,10 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             final_data = list(self.generate_pdf_data(data))
 
             if self.custom_headers:
-                all_element_cells.append(self.generate_table_pdf_headers())
+                all_element_cells.append(self.generate_table_pdf_headers(TABLE_WIDTH))
                 final_data.pop(0)
 
-            table_obj = Table(final_data)
+            table_obj = Table(final_data, colWidths=TABLE_WIDTH / len(final_data[0]))
             table_obj.setStyle(table_style)
 
             # Send the data and build the file
@@ -516,7 +517,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         """
         return Paragraph("{}-{}".format(title, self.display_name), self.generate_style_sheet("Heading2"))
 
-    def generate_table_pdf_headers(self):
+    def generate_table_pdf_headers(self, width):
         """
         This returns a Table from the custom html headers.
         """
@@ -557,7 +558,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
                 table_row.append(Paragraph(cell.get("value"), self.generate_style_sheet("BodyText")))
             table.append(table_row)
 
-        return Table(table, style=table_style)
+        return Table(table, style=table_style, colWidths=width / len(table[0]))
 
     def generate_style_sheet(self, stylesheet):
         """

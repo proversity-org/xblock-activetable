@@ -76,8 +76,8 @@ function ActiveTableXBlock(runtime, element, init_args) {
     function callHandler(url) {
         var answers = {};
         $('td.active', element).each(function() {
-            var inputCell = $('input', this);
-            if (!$('input', this).attr("type").localeCompare("radio")){
+            var inputCell = $('input:radio, textarea', this);
+            if (inputCell.is("input")){
                 answers[this.id] = inputCell.is(":checked");
             } else {
                 answers[this.id] = inputCell.val();
@@ -176,4 +176,12 @@ function ActiveTableXBlock(runtime, element, init_args) {
     });
     $('.action .download', element).click(function (e) { downloadPDFHandler(); });
     updateStatus(init_args);
+
+    window.onload = function() {
+        $('textarea').each(function () {
+          this.setAttribute('style', 'height:' + (this.scrollHeight) + "px;");
+        }).on('input', function () {
+          this.style.height = (this.scrollHeight) + 'px';
+        });
+    };
 }
