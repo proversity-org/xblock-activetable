@@ -33,8 +33,7 @@
           <label class="radio-label" for="input_{{ cell.id }}" style="height: {{ cell.height }}px;"></label>
           {% else %}
           <label class="sr" for="input_{{ cell.id }}">{{ cell.col_label }}</label>
-          <input id="input_{{ cell.id }}" type="text" style="height: {{ cell.height }}px;" size=1
-                 value="{{ cell.value|default_if_none:'' }}" placeholder="{{ cell.placeholder }}">
+          <textarea id="input_{{ cell.id }}" placeholder="{{ cell.placeholder }}">{{ cell.value|default_if_none:'' }}</textarea>
           {% endif %}
         </td>
         {% endfor %}

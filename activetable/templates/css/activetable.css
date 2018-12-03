@@ -49,24 +49,27 @@
 .activetable_block tr.odd td.right-answer {
     background-color: #d0f0d0;
 }
-.activetable_block input[type="text"] {
+.activetable_block textarea {
     font-size: 1em;
     line-height: 1.5em;
     border: 0;
-    padding: 0 10px;
+    padding: 10px 10px;
     margin: 0;
     box-sizing: border-box;
     display: block;
     width: 100%;
+    height: auto;
     background-color: transparent;
     border-radius: initial;
     background-image: initial;
     box-shadow: initial;
+    overflow: hidden;
+    resize: none;
 }
-.activetable_block input[type="text"]:hover {
+.activetable_block textarea:hover {
     outline: 3px solid #a0a0ff;
 }
-.activetable_block input[type="text"]:focus {
+.activetable_block textarea:focus {
     outline: 3px solid #8080ff;
 }
 .activetable_block #activetable-help-text {
