@@ -59,7 +59,7 @@
     display: block;
     width: 100%;
     height: auto;
-    background-color: transparent;
+    background-color: transparent !important;
     border-radius: initial;
     background-image: initial;
     box-shadow: initial;
