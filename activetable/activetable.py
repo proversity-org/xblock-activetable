@@ -10,6 +10,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
+from submissions import api
 from webob.response import Response
 from xblock.core import XBlock
 from xblock.fields import Dict, Float, Integer, Scope, String, Boolean, List
@@ -23,6 +24,7 @@ from .parsers import ParseError, parse_table, parse_number_list, parse_to_pdf, p
 
 loader = ResourceLoader(__name__)  # pylint: disable=invalid-name
 SCORE_OPTIONS = ["scorable", "no_right_answer", "unique_option"]
+ITEM_TYPE = "activetable"
 
 
 class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
@@ -231,6 +233,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             maximum_score=self.maximum_score,
             attempts=self.attempts,
             max_attempts=self.max_attempts,
+            answers=self.answers,
         )
 
     def student_view(self, context=None):
@@ -294,6 +297,8 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         self.attempts += 1
         self.score = self.num_correct_answers * self.maximum_score / len(self.answers_correct)
         self.runtime.publish(self, 'grade', dict(value=self.score, max_value=self.maximum_score))
+        student_item_dict = self.get_student_item_dict()
+        api.create_submission(student_item_dict, self.get_status())
         return self.get_status()
 
     @XBlock.json_handler
@@ -310,6 +315,8 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         else:
             self.answers_correct = None
 
+        student_item_dict = self.get_student_item_dict()
+        api.create_submission(student_item_dict, self.get_status())
         return self.get_status()
 
     @XBlock.json_handler
@@ -569,6 +576,104 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         sample_style_sheet.wordWrap = 'CJK'
         sample_style_sheet.alignment = 1
         return sample_style_sheet
+
+    def get_student_item_dict(self, student=None):
+        """
+        Returns dict required by the submissions app for creating and
+        retrieving submissions for a particular student.
+        """
+        if student is None:
+            student = self.runtime.get_real_user(self.runtime.anonymous_student_id)
+
+        return {
+            "student_id": student.id,
+            "course_id": unicode(self.course_id),
+            "item_id": unicode(self.scope_ids.usage_id),
+            "item_type": ITEM_TYPE,
+        }
+
+    @staticmethod
+    def custom_report_format(*args, **kwargs):
+        """
+        This returns a html string with the activatable answers for the given user and block.
+        **Required Parameters:
+            student: Instance of django user <User: audit>
+            block: Instance of <class 'xblock.internal.ActiveTableXBlockWithMixins'>
+        **returns
+            String:
+                <table>
+                <thead>
+                    <tr>
+                        <th scope="col" style="border: 1px solid #c0c0c0;
+                                padding: 10px 10px 5px 10px;
+                                vertical-align: middle;">Column header 1</th>
+
+                        <th scope="col" style="border: 1px solid #c0c0c0;
+                                padding: 10px 10px 5px 10px;
+                                vertical-align: middle;">Column header 2</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td scope="col" style="border: 1px solid #c0c0c0;
+                                padding: 10px 10px 5px 10px;
+                                vertical-align: middle;">Enter "answer" here:</td>
+
+                        <td scope="col" style="border: 1px solid #c0c0c0;
+                                padding: 10px 10px 5px 10px;
+                                vertical-align: middle;">An answer</td>
+                    </tr>
+                    <tr>
+                        <td scope="col" style="border: 1px solid #c0c0c0;
+                                padding: 10px 10px 5px 10px;
+                                vertical-align: middle;">42</td>
+
+                        <td scope="col" style="border: 1px solid #c0c0c0;
+                                padding: 10px 10px 5px 10px;
+                                vertical-align: middle;">A number</td>
+                    </tr>
+                </tbody>
+                </table>
+        """
+        student = kwargs.get("student")
+        block = kwargs.get("block")
+
+        answers = {}
+
+        if not block:
+            return ''
+        elif student:
+            student_item_dict = block.get_student_item_dict(student=student)
+            submission = api.get_submissions(student_item_dict, limit=1)
+            try:
+                user_answers = submission[0]["answer"]
+                answers = user_answers.get("answers", {})
+            except IndexError:
+                pass
+
+        block.answers = answers
+        block.parse_fields()
+        block.postprocess_table()
+        td = """
+            <td
+                scope="col"
+                style=
+                    "border: 1px solid #c0c0c0;
+                    padding: 10px 10px 5px 10px;
+                    vertical-align: middle;"
+            >{}</td>
+        """
+        th = td.replace("td", "th")
+        headers_style = re.sub("<[^<]*table>", "", block.headers_style) if block.custom_headers else None
+        header_cells = [th.format(cell) for cell in block.thead]
+        header = headers_style if headers_style else "<thead><tr>{}</tr></thead>".format(' '.join(header_cells))
+        rows = []
+        for row in block.tbody:
+            cells = [td.format(cell.value) for cell in row.get("cells")]
+            rows.append("<tr>{}</tr>".format("".join(cells)))
+        body = "<tbody>{}</tbody>".format(''.join(rows))
+        table = "<table>{}{}</table>".format(header, body)
+        return table.replace('\n', "")
 
     @staticmethod
     def workbench_scenarios():
