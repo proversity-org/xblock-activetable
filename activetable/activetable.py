@@ -577,16 +577,16 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         sample_style_sheet.alignment = 1
         return sample_style_sheet
 
-    def get_student_item_dict(self, student=None):
+    def get_student_item_dict(self, user=None):
         """
         Returns dict required by the submissions app for creating and
         retrieving submissions for a particular student.
         """
-        if student is None:
-            student = self.runtime.get_real_user(self.runtime.anonymous_student_id)
+        if user is None:
+            user = self.runtime.get_real_user(self.runtime.anonymous_student_id)
 
         return {
-            "student_id": student.id,
+            "student_id": user.id,
             "course_id": unicode(self.course_id),
             "item_id": unicode(self.scope_ids.usage_id),
             "item_type": ITEM_TYPE,
@@ -596,54 +596,16 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
     def custom_report_format(*args, **kwargs):
         """
         This returns a html string with the activatable answers for the given user and block.
-        **Required Parameters:
-            student: Instance of django user <User: audit>
-            block: Instance of <class 'xblock.internal.ActiveTableXBlockWithMixins'>
-        **returns
-            String:
-                <table>
-                <thead>
-                    <tr>
-                        <th scope="col" style="border: 1px solid #c0c0c0;
-                                padding: 10px 10px 5px 10px;
-                                vertical-align: middle;">Column header 1</th>
-
-                        <th scope="col" style="border: 1px solid #c0c0c0;
-                                padding: 10px 10px 5px 10px;
-                                vertical-align: middle;">Column header 2</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td scope="col" style="border: 1px solid #c0c0c0;
-                                padding: 10px 10px 5px 10px;
-                                vertical-align: middle;">Enter "answer" here:</td>
-
-                        <td scope="col" style="border: 1px solid #c0c0c0;
-                                padding: 10px 10px 5px 10px;
-                                vertical-align: middle;">An answer</td>
-                    </tr>
-                    <tr>
-                        <td scope="col" style="border: 1px solid #c0c0c0;
-                                padding: 10px 10px 5px 10px;
-                                vertical-align: middle;">42</td>
-
-                        <td scope="col" style="border: 1px solid #c0c0c0;
-                                padding: 10px 10px 5px 10px;
-                                vertical-align: middle;">A number</td>
-                    </tr>
-                </tbody>
-                </table>
         """
-        student = kwargs.get("student")
+        user = kwargs.get("user")
         block = kwargs.get("block")
 
         answers = {}
 
         if not block:
             return ''
-        elif student:
-            student_item_dict = block.get_student_item_dict(student=student)
+        elif user:
+            student_item_dict = block.get_student_item_dict(user=user)
             submission = api.get_submissions(student_item_dict, limit=1)
             try:
                 user_answers = submission[0]["answer"]
@@ -654,26 +616,18 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         block.answers = answers
         block.parse_fields()
         block.postprocess_table()
-        td = """
-            <td
-                scope="col"
-                style=
-                    "border: 1px solid #c0c0c0;
-                    padding: 10px 10px 5px 10px;
-                    vertical-align: middle;"
-            >{}</td>
-        """
-        th = td.replace("td", "th")
-        headers_style = re.sub("<[^<]*table>", "", block.headers_style) if block.custom_headers else None
-        header_cells = [th.format(cell) for cell in block.thead]
-        header = headers_style if headers_style else "<thead><tr>{}</tr></thead>".format(' '.join(header_cells))
-        rows = []
-        for row in block.tbody:
-            cells = [td.format(cell.value) for cell in row.get("cells")]
-            rows.append("<tr>{}</tr>".format("".join(cells)))
-        body = "<tbody>{}</tbody>".format(''.join(rows))
-        table = "<table>{}{}</table>".format(header, body)
-        return table.replace('\n', "")
+
+        context = dict(
+            total_width=sum(block._column_widths) if block._column_widths else None,
+            column_widths=block._column_widths,
+            head_height=block._row_heights[0] if block._row_heights else None,
+            thead=block.thead,
+            tbody=block.tbody,
+            score_type=block.score_type,
+            headers_style=re.sub("<[^<]*table>", "", block.headers_style) if block.custom_headers else None,
+        )
+        html = loader.render_template('templates/html/activetable_custom_report_format.html', context)
+        return html.replace('\n', "")
 
     @staticmethod
     def workbench_scenarios():

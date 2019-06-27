@@ -1,0 +1,27 @@
+<div class="activetable_block"  data-score-type={{score_type}}>
+  <table id="activetable">
+    <colgroup>
+      {% for width in column_widths %}<col style="width: {{ width }}px;">{% endfor %}
+    </colgroup>
+    {% if headers_style %}
+      {{ headers_style|safe }}
+    {% else %}
+      <thead>
+        <tr class="active-table-custom-format-row" style="height: {{ head_height }}px;">
+          {% for cell in thead %}
+            <th class="active-table-custom-format-header" scope="col" style="border: 1px solid #c0c0c0; padding: 10px;">{{ cell }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+    {% endif %}
+    <tbody>
+      {% for row in tbody %}
+      <tr class="active-table-custom-format-row" style="height: {{ row.height }}px;">
+        {% for cell in row.cells %}
+          <td class="active-table-custom-format-cell"style="border: 1px solid #c0c0c0; padding: 10px;">{{cell.value}}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
