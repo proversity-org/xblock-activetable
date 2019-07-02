@@ -597,8 +597,8 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         """
         This returns a html string with the activatable answers for the given user and block.
         """
-        user = kwargs.get("user")
-        block = kwargs.get("block")
+        user = kwargs.get('user')
+        block = kwargs.get('block')
 
         answers = {}
 
@@ -608,8 +608,8 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             student_item_dict = block.get_student_item_dict(user=user)
             submission = api.get_submissions(student_item_dict, limit=1)
             try:
-                user_answers = submission[0]["answer"]
-                answers = user_answers.get("answers", {})
+                user_answers = submission[0].get('answers', {})
+                answers = user_answers.get('answers', {})
             except IndexError:
                 pass
 
@@ -624,10 +624,10 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             thead=block.thead,
             tbody=block.tbody,
             score_type=block.score_type,
-            headers_style=re.sub("<[^<]*table>", "", block.headers_style) if block.custom_headers else None,
+            headers_style=re.sub('<[^<]*table>', '', block.headers_style) if block.custom_headers else None,
         )
         html = loader.render_template('templates/html/activetable_custom_report_format.html', context)
-        return html.replace('\n', "")
+        return html.replace('\n', '')
 
     @staticmethod
     def workbench_scenarios():
