@@ -10,6 +10,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
+from submissions import api
 from webob.response import Response
 from xblock.core import XBlock
 from xblock.fields import Dict, Float, Integer, Scope, String, Boolean, List
@@ -23,6 +24,7 @@ from .parsers import ParseError, parse_table, parse_number_list, parse_to_pdf, p
 
 loader = ResourceLoader(__name__)  # pylint: disable=invalid-name
 SCORE_OPTIONS = ["scorable", "no_right_answer", "unique_option"]
+ITEM_TYPE = "activetable"
 
 
 class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
@@ -231,6 +233,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             maximum_score=self.maximum_score,
             attempts=self.attempts,
             max_attempts=self.max_attempts,
+            answers=self.answers,
         )
 
     def student_view(self, context=None):
@@ -294,6 +297,8 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         self.attempts += 1
         self.score = self.num_correct_answers * self.maximum_score / len(self.answers_correct)
         self.runtime.publish(self, 'grade', dict(value=self.score, max_value=self.maximum_score))
+        student_item_dict = self.get_student_item_dict()
+        api.create_submission(student_item_dict, self.get_status())
         return self.get_status()
 
     @XBlock.json_handler
@@ -310,6 +315,8 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         else:
             self.answers_correct = None
 
+        student_item_dict = self.get_student_item_dict()
+        api.create_submission(student_item_dict, self.get_status())
         return self.get_status()
 
     @XBlock.json_handler
@@ -569,6 +576,58 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         sample_style_sheet.wordWrap = 'CJK'
         sample_style_sheet.alignment = 1
         return sample_style_sheet
+
+    def get_student_item_dict(self, user=None):
+        """
+        Returns dict required by the submissions app for creating and
+        retrieving submissions for a particular student.
+        """
+        if user is None:
+            user = self.runtime.get_real_user(self.runtime.anonymous_student_id)
+
+        return {
+            "student_id": user.id,
+            "course_id": unicode(self.course_id),
+            "item_id": unicode(self.scope_ids.usage_id),
+            "item_type": ITEM_TYPE,
+        }
+
+    @staticmethod
+    def custom_report_format(*args, **kwargs):
+        """
+        This returns a html string with the activatable answers for the given user and block.
+        """
+        user = kwargs.get('user')
+        block = kwargs.get('block')
+
+        answers = {}
+
+        if not block:
+            return ''
+        elif user:
+            student_item_dict = block.get_student_item_dict(user=user)
+            submission = api.get_submissions(student_item_dict, limit=1)
+            try:
+                user_answers = submission[0].get('answers', {})
+                answers = user_answers.get('answers', {})
+            except IndexError:
+                pass
+
+        block.answers = answers
+        block.parse_fields()
+        block.postprocess_table()
+
+        context = dict(
+            total_width=sum(block._column_widths) if block._column_widths else None,
+            column_widths=block._column_widths,
+            head_height=block._row_heights[0] if block._row_heights else None,
+            thead=block.thead,
+            tbody=block.tbody,
+            score_type=block.score_type,
+            headers_style=re.sub('<[^<]*table>', '', block.headers_style) if block.custom_headers else None,
+        )
+        html = loader.render_template('templates/html/activetable_custom_report_format.html', context)
+        return html.replace('\n', '')
 
     @staticmethod
     def workbench_scenarios():
