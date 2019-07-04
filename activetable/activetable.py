@@ -608,7 +608,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             student_item_dict = block.get_student_item_dict(user=user)
             submission = api.get_submissions(student_item_dict, limit=1)
             try:
-                user_answers = submission[0].get('answers', {})
+                user_answers = submission[0].get('answer', {})
                 answers = user_answers.get('answers', {})
             except IndexError:
                 pass
