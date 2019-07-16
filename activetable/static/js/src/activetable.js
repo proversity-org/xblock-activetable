@@ -89,7 +89,7 @@ function ActiveTableXBlock(runtime, element, init_args) {
             data: JSON.stringify(answers),
             success: function(data) {
                 var dataScoreType = $('.activetable_block', element).attr("data-score-type");
-                if (!dataScoreType.localeCompare("no_right_answer") && url != addRowHandlerUrl){
+                if (!dataScoreType.localeCompare("no_right_answer") && url !== addRowHandlerUrl) {
                     $(".no-right-answer-message p").fadeIn().delay(2000).fadeOut();
                 }
                 updateStatus(data);
@@ -139,21 +139,16 @@ function ActiveTableXBlock(runtime, element, init_args) {
 
     function createCell(oldCell, index){
         var cellId = oldCell.id;
-        var kind = "textarea";
-
-        if ($(oldCell).find("input").length) {
-            var kind = "input";
-        }
-
-        var type = $(oldCell).find(kind).attr("type");
+        var elementTagKind = ($(oldCell).find("input").length) ? "input" : "textarea";
+        var type = $(oldCell).find(elementTagKind).attr("type");
         var height = $("#input_" + cellId).outerHeight();
         var newId = cellId.replace("_"+index+"_", "_"+(index+1)+"_")
         var cell = $("<td>").attr("id", newId);
 
         if (!cellId.endsWith("_0")){
             cell.addClass("active unchecked");
-            var cellInput = $("<" + kind + ">").attr("id", "input_"+newId).attr("type", type).css("height", height+"px");
-            if (type != null && !type.localeCompare("radio")) {
+            var cellInput = $("<" + elementTagKind + ">").attr("id", "input_"+newId).attr("type", type).css("height", height+"px");
+            if (type && !type.localeCompare("radio")) {
                 cellInput.attr("name", "row_"+(index+1));
                 var cellLabel = $("<label>").addClass("radio-label").attr("for", "input_"+newId).css("height", height+"px");
             } else {
