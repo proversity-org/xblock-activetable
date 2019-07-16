@@ -89,7 +89,7 @@ function ActiveTableXBlock(runtime, element, init_args) {
             data: JSON.stringify(answers),
             success: function(data) {
                 var dataScoreType = $('.activetable_block', element).attr("data-score-type");
-                if (!dataScoreType.localeCompare("no_right_answer")){
+                if (!dataScoreType.localeCompare("no_right_answer") && url != addRowHandlerUrl){
                     $(".no-right-answer-message p").fadeIn().delay(2000).fadeOut();
                 }
                 updateStatus(data);
@@ -138,16 +138,22 @@ function ActiveTableXBlock(runtime, element, init_args) {
     }
 
     function createCell(oldCell, index){
-        var cellId = oldCell.id
-        var type = $(oldCell).find("input").attr("type");
-        var height = $(oldCell).find("input").outerHeight();
+        var cellId = oldCell.id;
+        var kind = "textarea";
+
+        if ($(oldCell).find("input").length) {
+            var kind = "input";
+        }
+
+        var type = $(oldCell).find(kind).attr("type");
+        var height = $("#input_" + cellId).outerHeight();
         var newId = cellId.replace("_"+index+"_", "_"+(index+1)+"_")
         var cell = $("<td>").attr("id", newId);
 
         if (!cellId.endsWith("_0")){
             cell.addClass("active unchecked");
-            var cellInput = $("<input>").attr("id", "input_"+newId).attr("type", type).css("height", height+"px");
-            if (!type.localeCompare("radio")) {
+            var cellInput = $("<" + kind + ">").attr("id", "input_"+newId).attr("type", type).css("height", height+"px");
+            if (type != null && !type.localeCompare("radio")) {
                 cellInput.attr("name", "row_"+(index+1));
                 var cellLabel = $("<label>").addClass("radio-label").attr("for", "input_"+newId).css("height", height+"px");
             } else {
@@ -172,7 +178,7 @@ function ActiveTableXBlock(runtime, element, init_args) {
     $('.action .save', element).click(function (e) { callHandler(saveHandlerUrl); });
     $('.action .extendable', element).click(function (e) {
         callHandler(addRowHandlerUrl);
-        addNewRow(addRowHandlerUrl);
+        addNewRow();
     });
     $('.action .download', element).click(function (e) { downloadPDFHandler(); });
     updateStatus(init_args);
