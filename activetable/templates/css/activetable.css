@@ -143,3 +143,13 @@
     background: url("{{ correct_icon }}") center no-repeat;
     width: 100%;
 }
+
+@media only screen and (max-width: 600px) {
+  .xblock.xblock-student_view.xblock-student_view-activetable.xblock-initialized {
+    width: 85vw;
+  }
+
+  .activetable-help {
+    width: 85vw !important;
+  }
+}
