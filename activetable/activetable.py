@@ -236,6 +236,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             answers=self.answers,
         )
 
+    @XBlock.supports('multi_device')  # Mark as mobile-friendly
     def student_view(self, context=None):
         """Render the table."""
         self.remove_unsaved_rows()
