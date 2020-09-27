@@ -173,7 +173,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         """The number of correct answers during the last check."""
         if self.answers_correct is None:
             return None
-        return sum(self.answers_correct.itervalues())
+        return sum(self.answers_correct.values())
 
     @property
     def num_total_answers(self):
@@ -392,13 +392,13 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         try:
             thead, tbody = parse_table(data.content)
         except ParseError as exc:
-            add_error('Problem with table definition: ' + exc.message)
+            add_error('Problem with table definition: ' + exc.__str__())
             thead = tbody = None
         if data.column_widths:
             try:
                 column_widths = parse_number_list(data.column_widths)
             except ParseError as exc:
-                add_error('Problem with column widths: ' + exc.message)
+                add_error('Problem with column widths: ' + exc.__str__())
             else:
                 if thead is not None and len(column_widths) != len(thead):
                     add_error(
@@ -409,7 +409,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
             try:
                 row_heights = parse_number_list(data.row_heights)
             except ParseError as exc:
-                add_error('Problem with row heights: ' + exc.message)
+                add_error('Problem with row heights: ' + exc.__str__())
             else:
                 if tbody is not None and len(row_heights) != len(tbody) + 1:
                     add_error(
@@ -438,7 +438,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         except AttributeError:
             previous_column_value = index
 
-        if isinstance(previous_column_value, (int, long)):
+        if isinstance(previous_column_value, int):
             new_column_value = previous_column_value + 1
         else:
             new_column_value = len(self.body) + 1
@@ -472,7 +472,7 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
                 self.additional_rows.remove(row)
 
     def save_filled_additional_rows(self, data):
-        for cell_id, value in data.iteritems():
+        for cell_id, value in data.items():
             index_column = self.response_cells[cell_id].index
             index_row = cell_id[len("cell_"): -len("_{}".format(index_column))]
             if value != "":
@@ -486,16 +486,16 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
         if self.score_type == SCORE_OPTIONS[1]:
             return {
                 cell_id: True if value != "" else False
-                for cell_id, value in data.iteritems()
+                for cell_id, value in data.items()
             }
         elif self.score_type == SCORE_OPTIONS[2]:
             return {
-                cell_id: value for cell_id, value in data.iteritems()
+                cell_id: value for cell_id, value in data.items()
             }
         else:
             return {
                 cell_id: self.response_cells[cell_id].check_response(value)
-                for cell_id, value in data.iteritems()
+                for cell_id, value in data.items()
             }
 
     def generate_pdf_data(self, data):
@@ -588,8 +588,8 @@ class ActiveTableXBlock(StudioEditableXBlockMixin, XBlock):
 
         return {
             "student_id": user.id,
-            "course_id": unicode(self.course_id),
-            "item_id": unicode(self.scope_ids.usage_id),
+            "course_id": str(self.course_id),
+            "item_id": str(self.scope_ids.usage_id),
             "item_type": ITEM_TYPE,
         }
 
