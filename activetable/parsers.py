@@ -68,10 +68,6 @@ def _parse_response_cell(cell_node):
     arguments must be keyword arguments.
     """
     cell_type = _ensure_type(cell_node.func, ast.Name).id
-    if any((cell_node.args, cell_node.starargs, cell_node.kwargs)):
-        raise ParseError(
-            'all arguments to {} must be keyword arguments of the form name=value'.format(cell_type)
-        )
     if cell_type == 'Text':
         cell_class = TextCell
         kwargs = {kw.arg: _ensure_type(kw.value, ast.Str).s for kw in cell_node.keywords}
@@ -83,7 +79,7 @@ def _parse_response_cell(cell_node):
     try:
         return cell_class(**kwargs)
     except Exception as exc:
-        raise ParseError(exc.message)
+        raise ParseError(exc.__str__())
 
 
 def parse_number_list(source):

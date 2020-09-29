@@ -30,6 +30,7 @@ setup(
     install_requires=[
         'XBlock',
         'xblock-utils',
+        'reportlab',
     ],
     entry_points={
         'xblock.v1': [
